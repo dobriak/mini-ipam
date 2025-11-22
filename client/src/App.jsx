@@ -1,9 +1,232 @@
 import { useState, useEffect } from 'react'
+import { NavLink, Routes, Route } from 'react-router-dom'
 import axios from 'axios'
 import './App.css'
 
 const API_URL = "http://localhost:3001/api/nodes";
 const API_URL_COLLECTIONS = "http://localhost:3001/api/collections";
+
+// Top-level page components to keep stable identity between renders
+export function MyNodesPage({ nodes, collections, getGroupedSortedNodes }) {
+  const groups = getGroupedSortedNodes();
+  const colOrder = [...collections].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+  return (
+    <div className="card list-section">
+      <h3>My Nodes</h3>
+      {nodes.length === 0 ? <p>No data found.</p> : (
+        <div>
+          {colOrder.map(c => (
+            <div key={c.id} className="nodes-group">
+              <h4>{c.name} ({c.cidr})</h4>
+              {(!groups[String(c.id)] || groups[String(c.id)].length === 0) ? <p>No nodes.</p> : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>IP Address</th>
+                      <th>Port</th>
+                      <th>Name</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groups[String(c.id)]?.map(n => (
+                      <tr key={n.id}>
+                        <td>{n.id}</td>
+                        <td>{n.ip_address}</td>
+                        <td>{n.port}</td>
+                        <td>{n.name || '-'}</td>
+                        <td>{n.notes || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
+
+          <div className="nodes-group">
+            <h4>Unassigned</h4>
+            {(!groups[''] || groups[''].length === 0) ? <p>No nodes.</p> : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>IP Address</th>
+                    <th>Port</th>
+                    <th>Name</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups['']?.map(n => (
+                    <tr key={n.id}>
+                      <td>{n.id}</td>
+                      <td>{n.ip_address}</td>
+                      <td>{n.port}</td>
+                      <td>{n.name || '-'}</td>
+                      <td>{n.notes || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function EditNodesPage(props) {
+  const { editingId, formData, handleChange, handleIPBlur, handleSubmit, collections, nodes, handleEdit, handleDelete, handleCancel } = props;
+  return (
+    <>
+      <div className="card form-section">
+        <h3>{editingId ? 'Edit Node' : 'Add New Node'}</h3>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            name="ip_address"
+            placeholder="IP Address (e.g. 192.168.1.1)"
+            value={formData.ip_address}
+            onChange={handleChange}
+            onBlur={handleIPBlur}
+          />
+          <input
+            type="text"
+            name="name"
+            placeholder="Node name (optional)"
+            value={formData.name}
+            onChange={handleChange}
+          />
+          <input
+            type="number"
+            name="port"
+            placeholder="Port (e.g. 8080)"
+            value={formData.port}
+            onChange={handleChange}
+            min={0}
+            max={65535}
+            step={1}
+          />
+          <input
+            type="text"
+            name="notes"
+            placeholder="Notes (optional)"
+            value={formData.notes}
+            onChange={handleChange}
+          />
+          <select name="collection_id" value={formData.collection_id} onChange={handleChange}>
+            <option value="">-- No Collection --</option>
+            {collections.map(c => (
+              <option key={c.id} value={c.id}>{c.name} ({c.cidr})</option>
+            ))}
+          </select>
+          <div className="buttons">
+            <button type="submit">{editingId ? 'Update' : 'Add'}</button>
+            {editingId && <button type="button" onClick={handleCancel} className="cancel">Cancel</button>}
+          </div>
+        </form>
+      </div>
+
+      <div className="card list-section">
+        <h3>Current Nodes</h3>
+        {nodes.length === 0 ? <p>No data found.</p> : (
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>IP Address</th>
+                <th>Port</th>
+                <th>Name</th>
+                <th>Notes</th>
+                <th>Collection</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {nodes.map((node) => (
+                <tr key={node.id}>
+                  <td>{node.id}</td>
+                  <td>{node.ip_address}</td>
+                  <td>{node.port}</td>
+                  <td>{node.name || '-'}</td>
+                  <td>{node.notes || '-'}</td>
+                  <td>{node.collection_id ? (collections.find(c => c.id === node.collection_id)?.name || node.collection_id) : '-'}</td>
+                  <td>
+                    <button onClick={() => handleEdit(node)} className="edit-btn">Edit</button>
+                    <button onClick={() => handleDelete(node.id)} className="delete-btn">Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
+  );
+}
+
+export function EditCollectionsPage(props) {
+  const { collectionForm, handleCollectionChange, handleCollectionSubmit, editingCollectionId, handleCollectionCancel, collections, handleCollectionEdit, handleCollectionDelete } = props;
+  return (
+    <>
+      <div className="card form-section">
+        <h3>{editingCollectionId ? 'Edit Collection' : 'Add New Collection'}</h3>
+        <form onSubmit={handleCollectionSubmit}>
+          <input
+            type="text"
+            name="name"
+            placeholder="Collection name"
+            value={collectionForm.name}
+            onChange={handleCollectionChange}
+          />
+          <input
+            type="text"
+            name="cidr"
+            placeholder="CIDR (e.g. 192.168.1.0/24)"
+            value={collectionForm.cidr}
+            onChange={handleCollectionChange}
+          />
+          <div className="buttons">
+            <button type="submit">{editingCollectionId ? 'Update' : 'Add'}</button>
+            {editingCollectionId && <button type="button" onClick={handleCollectionCancel} className="cancel">Cancel</button>}
+          </div>
+        </form>
+      </div>
+
+      <div className="card list-section">
+        <h3>Collections</h3>
+        {collections.length === 0 ? <p>No collections found.</p> : (
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>CIDR</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {collections.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.id}</td>
+                  <td>{c.name}</td>
+                  <td>{c.cidr}</td>
+                  <td>
+                    <button onClick={() => handleCollectionEdit(c)} className="edit-btn">Edit</button>
+                    <button onClick={() => handleCollectionDelete(c.id)} className="delete-btn">Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
+  );
+}
 
 function App() {
   const [nodes, setNodes] = useState([]);
@@ -167,6 +390,35 @@ function App() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Build a grouped and sorted view for "My Nodes"
+  const getGroupedSortedNodes = () => {
+    // clone and sort by IP (numeric) then port
+    const sorted = [...nodes].sort((a, b) => {
+      try {
+        const ai = ipToInt(a.ip_address);
+        const bi = ipToInt(b.ip_address);
+        if (ai !== bi) return ai - bi;
+        const ap = Number(a.port || 0);
+        const bp = Number(b.port || 0);
+        return ap - bp;
+      } catch (e) {
+        return 0;
+      }
+    });
+
+    // group by collection id (string) with unassigned as ''
+    const groups = {};
+    for (const n of sorted) {
+      const key = n.collection_id ? String(n.collection_id) : '';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(n);
+    }
+    return groups;
+  };
+
+  // Page components (use closures to access state/handlers)
+  // (moved page components to top-level to avoid remounting on each render)
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -219,146 +471,40 @@ function App() {
 
   return (
     <div className="container">
-      <h1>Network Manager (IP/Port)</h1>
-      
-      {/* Form Section */}
-      <div className="card form-section">
-        <h3>{editingId ? 'Edit Node' : 'Add New Node'}</h3>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            name="ip_address"
-            placeholder="IP Address (e.g. 192.168.1.1)"
-            value={formData.ip_address}
-            onChange={handleChange}
-            onBlur={handleIPBlur}
-          />
-          <input
-            type="text"
-            name="name"
-            placeholder="Node name (optional)"
-            value={formData.name}
-            onChange={handleChange}
-          />
-          <input
-            type="number"
-            name="port"
-            placeholder="Port (e.g. 8080)"
-            value={formData.port}
-            onChange={handleChange}
-            min={0}
-            max={65535}
-            step={1}
-          />
-          <input
-            type="text"
-            name="notes"
-            placeholder="Notes (optional)"
-            value={formData.notes}
-            onChange={handleChange}
-          />
-          <select name="collection_id" value={formData.collection_id} onChange={handleChange}>
-            <option value="">-- No Collection --</option>
-            {collections.map(c => (
-              <option key={c.id} value={c.id}>{c.name} ({c.cidr})</option>
-            ))}
-          </select>
-          <div className="buttons">
-            <button type="submit">{editingId ? 'Update' : 'Add'}</button>
-            {editingId && <button type="button" onClick={handleCancel} className="cancel">Cancel</button>}
-          </div>
-        </form>
-      </div>
+      <h1>Mini IPAM</h1>
 
-      {/* List Section */}
-      <div className="card list-section">
-        <h3>Current Nodes</h3>
-        {nodes.length === 0 ? <p>No data found.</p> : (
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>IP Address</th>
-                <th>Port</th>
-                  <th>Name</th>
-                  <th>Notes</th>
-                  <th>Collection</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {nodes.map((node) => (
-                <tr key={node.id}>
-                  <td>{node.id}</td>
-                  <td>{node.ip_address}</td>
-                  <td>{node.port}</td>
-                    <td>{node.name || '-'}</td>
-                    <td>{node.notes || '-'}</td>
-                    <td>{node.collection_id ? (collections.find(c => c.id === node.collection_id)?.name || node.collection_id) : '-'}</td>
-                  <td>
-                    <button onClick={() => handleEdit(node)} className="edit-btn">Edit</button>
-                    <button onClick={() => handleDelete(node.id)} className="delete-btn">Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <nav className="top-nav">
+        <NavLink to="/" end className={({isActive}) => isActive ? 'active' : ''}>My Nodes</NavLink>
+        <NavLink to="/edit-nodes" className={({isActive}) => isActive ? 'active' : ''}>Edit Nodes</NavLink>
+        <NavLink to="/edit-collections" className={({isActive}) => isActive ? 'active' : ''}>Edit Collections</NavLink>
+      </nav>
 
-      {/* Collections Section */}
-      <div className="card form-section">
-        <h3>{editingCollectionId ? 'Edit Collection' : 'Add New Collection'}</h3>
-        <form onSubmit={handleCollectionSubmit}>
-          <input
-            type="text"
-            name="name"
-            placeholder="Collection name"
-            value={collectionForm.name}
-            onChange={handleCollectionChange}
-          />
-          <input
-            type="text"
-            name="cidr"
-            placeholder="CIDR (e.g. 192.168.1.0/24)"
-            value={collectionForm.cidr}
-            onChange={handleCollectionChange}
-          />
-          <div className="buttons">
-            <button type="submit">{editingCollectionId ? 'Update' : 'Add'}</button>
-            {editingCollectionId && <button type="button" onClick={handleCollectionCancel} className="cancel">Cancel</button>}
-          </div>
-        </form>
-      </div>
-
-      <div className="card list-section">
-        <h3>Collections</h3>
-        {collections.length === 0 ? <p>No collections found.</p> : (
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>CIDR</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {collections.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.id}</td>
-                  <td>{c.name}</td>
-                  <td>{c.cidr}</td>
-                  <td>
-                    <button onClick={() => handleCollectionEdit(c)} className="edit-btn">Edit</button>
-                    <button onClick={() => handleCollectionDelete(c.id)} className="delete-btn">Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <Routes>
+        <Route path="/" element={<MyNodesPage nodes={nodes} collections={collections} getGroupedSortedNodes={getGroupedSortedNodes} />} />
+        <Route path="/edit-nodes" element={<EditNodesPage
+          editingId={editingId}
+          formData={formData}
+          handleChange={handleChange}
+          handleIPBlur={handleIPBlur}
+          handleSubmit={handleSubmit}
+          collections={collections}
+          nodes={nodes}
+          handleEdit={handleEdit}
+          handleDelete={handleDelete}
+          handleCancel={handleCancel}
+        />} />
+        <Route path="/edit-collections" element={<EditCollectionsPage
+          collectionForm={collectionForm}
+          handleCollectionChange={handleCollectionChange}
+          handleCollectionSubmit={handleCollectionSubmit}
+          editingCollectionId={editingCollectionId}
+          handleCollectionCancel={handleCollectionCancel}
+          collections={collections}
+          handleCollectionEdit={handleCollectionEdit}
+          handleCollectionDelete={handleCollectionDelete}
+        />} />
+        <Route path="*" element={<MyNodesPage nodes={nodes} collections={collections} getGroupedSortedNodes={getGroupedSortedNodes} />} />
+      </Routes>
     </div>
   )
 }
