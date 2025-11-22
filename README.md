@@ -19,7 +19,7 @@ cd client
 npm run dev
 ```
 
-Open your browser to [localhost:5137](http://localhost:5137)
+Open your browser to [localhost:5173](http://localhost:5173)
 
 You can currently add CIDR ranges (collections) and IP address / port (node) to a given range.
 
