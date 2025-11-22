@@ -1,4 +1,4 @@
-.container { max-width: 800px; margin: 0 auto; font-family: sans-serif; padding: 20px; }
+.container { max-width: 800px; margin: 0 auto; font-family: sans-serif; padding: 24px; }
 .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #f9f9f9; }
 input { padding: 10px; margin-right: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
 table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -87,4 +87,24 @@ button.cancel { background-color: #777; }
 	table { min-width: 560px; }
 	th, td { padding: 10px; }
 }
+
+/* Fix unexpected top spacing inside page wrappers */
+.page { margin-top: 0; padding-top: 0; border-top: 1px solid transparent; display: flow-root; }
+.page .card { margin-top: 0; }
+.card h3 { margin-top: 0; margin-bottom: 12px; }
+
+/* Ensure nav doesn't create collapsing margin with following content */
+.top-nav { margin-bottom: 6px; }
+
+.page.collections-page { padding-top: 0; }
+
+/* Strong reset to avoid desktop-only collapsing/margin gaps */
+html, body { margin: 0; padding: 0; }
+.container { padding-top: 0; }
+.container > h1 { margin: 0 0 8px 0; }
+.container > .top-nav { margin-top: 0; }
+.container > .top-nav + .page { margin-top: 0; }
+.page.collections-page > .card:first-child { margin-top: 0 !important; padding-top: 0 !important; }
+
+/* Debug outlines removed */
 
