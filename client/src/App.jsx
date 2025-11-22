@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { NavLink, Routes, Route } from 'react-router-dom'
+import { NavLink, Routes, Route, useLocation } from 'react-router-dom'
 import axios from 'axios'
 import './App.css'
 
@@ -236,6 +236,7 @@ function App() {
   const [collections, setCollections] = useState([]);
   const [collectionForm, setCollectionForm] = useState({ name: '', cidr: '' });
   const [editingCollectionId, setEditingCollectionId] = useState(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Client-side CIDR/IP helpers (lightweight)
   const ipToInt = (ip) => ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
@@ -311,6 +312,12 @@ function App() {
     fetchNodes();
     fetchCollections();
   }, []);
+
+  // close mobile nav when route changes
+  const location = useLocation();
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
 
   const fetchNodes = async () => {
     try {
@@ -474,9 +481,22 @@ function App() {
       <h1>Mini IPAM</h1>
 
       <nav className="top-nav">
-        <NavLink to="/" end className={({isActive}) => isActive ? 'active' : ''}>My Nodes</NavLink>
-        <NavLink to="/edit-nodes" className={({isActive}) => isActive ? 'active' : ''}>Edit Nodes</NavLink>
-        <NavLink to="/edit-collections" className={({isActive}) => isActive ? 'active' : ''}>Edit Collections</NavLink>
+        <button
+          className={`hamburger ${mobileNavOpen ? 'open' : ''}`}
+          onClick={() => setMobileNavOpen(v => !v)}
+          aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={mobileNavOpen}
+        >
+          <span className="bar" />
+          <span className="bar" />
+          <span className="bar" />
+        </button>
+
+        <div className={`nav-links ${mobileNavOpen ? 'open' : ''}`}>
+          <NavLink to="/" end className={({isActive}) => isActive ? 'active' : ''}>My Nodes</NavLink>
+          <NavLink to="/edit-nodes" className={({isActive}) => isActive ? 'active' : ''}>Edit Nodes</NavLink>
+          <NavLink to="/edit-collections" className={({isActive}) => isActive ? 'active' : ''}>Edit Collections</NavLink>
+        </div>
       </nav>
 
       <Routes>
