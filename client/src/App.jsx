@@ -49,6 +49,40 @@ function App() {
     return false;
   };
 
+  const isValidIPv4 = (ip) => {
+    if (!ip || typeof ip !== 'string') return false;
+    const parts = ip.split('.');
+    if (parts.length !== 4) return false;
+    for (const p of parts) {
+      if (!/^[0-9]+$/.test(p)) return false;
+      const n = Number(p);
+      if (n < 0 || n > 255) return false;
+    }
+    return true;
+  };
+
+  // On IP input blur: if IP is valid, find a collection whose CIDR contains it
+  // and select that collection in the dropdown. If multiple collections match,
+  // pick the most specific (largest prefix).
+  const handleIPBlur = () => {
+    const ip = formData.ip_address && formData.ip_address.trim();
+    if (!isValidIPv4(ip)) return;
+    let best = null;
+    for (const c of collections) {
+      if (!c || !c.cidr) continue;
+      if (ipInCIDR(ip, c.cidr)) {
+        const parsed = parseCIDR(c.cidr);
+        if (!parsed) continue;
+        if (!best || parsed.prefix > best.prefix) {
+          best = { id: c.id, prefix: parsed.prefix };
+        }
+      }
+    }
+    if (best) {
+      setFormData((prev) => ({ ...prev, collection_id: String(best.id) }));
+    }
+  };
+
   // Fetch data on load
   useEffect(() => {
     fetchNodes();
@@ -197,6 +231,7 @@ function App() {
             placeholder="IP Address (e.g. 192.168.1.1)"
             value={formData.ip_address}
             onChange={handleChange}
+            onBlur={handleIPBlur}
           />
           <input
             type="text"
