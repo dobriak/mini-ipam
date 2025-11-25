@@ -9,6 +9,71 @@ import EditCollectionsPage from './pages/EditCollectionsPage.jsx'
 const API_URL = "http://localhost:3001/api/nodes";
 const API_URL_COLLECTIONS = "http://localhost:3001/api/collections";
 
+// Exported client-side CIDR/IP helpers for unit testing
+export const ipToInt = (ip) => ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
+export const parseCIDR = (cidr) => {
+  const parts = cidr.split('/');
+  if (parts.length !== 2) return null;
+  const ip = parts[0];
+  const prefix = parseInt(parts[1], 10);
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(ip) || isNaN(prefix) || prefix < 0 || prefix > 32) return null;
+  const ipInt = ipToInt(ip);
+  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+  const network = ipInt & mask;
+  return { network, mask, prefix };
+};
+export const ipInCIDR = (ip, cidr) => {
+  const parsed = parseCIDR(cidr);
+  if (!parsed) return false;
+  const ipInt = ipToInt(ip);
+  return (ipInt & parsed.mask) === parsed.network;
+};
+export const isRFC1918CIDR = (cidr) => {
+  const parsed = parseCIDR(cidr);
+  if (!parsed) return false;
+  const { network } = parsed;
+  const tenNet = ipToInt('10.0.0.0');
+  const tenMask = (~0 << (32 - 8)) >>> 0;
+  if ((network & tenMask) === (tenNet & tenMask)) return true;
+  const a172 = ipToInt('172.16.0.0');
+  const a172Mask = (~0 << (32 - 12)) >>> 0;
+  if ((network & a172Mask) === (a172 & a172Mask)) return true;
+  const n192 = ipToInt('192.168.0.0');
+  const n192Mask = (~0 << (32 - 16)) >>> 0;
+  if ((network & n192Mask) === (n192 & n192Mask)) return true;
+  return false;
+};
+
+export const isValidIPv4 = (ip) => {
+  if (!ip || typeof ip !== 'string') return false;
+  const parts = ip.split('.');
+  if (parts.length !== 4) return false;
+  for (const p of parts) {
+    if (!/^[0-9]+$/.test(p)) return false;
+    const n = Number(p);
+    if (n < 0 || n > 255) return false;
+  }
+  return true;
+};
+
+// Return the best matching collection id (most-specific prefix) for an IP, or null
+export const findBestCollectionForIP = (ip, collections) => {
+  const ipTrim = ip && ip.trim();
+  if (!isValidIPv4(ipTrim)) return null;
+  let best = null;
+  for (const c of collections || []) {
+    if (!c || !c.cidr) continue;
+    if (ipInCIDR(ipTrim, c.cidr)) {
+      const parsed = parseCIDR(c.cidr);
+      if (!parsed) continue;
+      if (!best || parsed.prefix > best.prefix) {
+        best = { id: c.id, prefix: parsed.prefix };
+      }
+    }
+  }
+  return best ? String(best.id) : null;
+};
+
 function App() {
   const [nodes, setNodes] = useState([]);
   const [formData, setFormData] = useState({ ip_address: '', port: '', collection_id: '', name: '', notes: '' });
@@ -19,72 +84,13 @@ function App() {
   const [editingCollectionId, setEditingCollectionId] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // Client-side CIDR/IP helpers (lightweight)
-  const ipToInt = (ip) => ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0;
-  const parseCIDR = (cidr) => {
-    const parts = cidr.split('/');
-    if (parts.length !== 2) return null;
-    const ip = parts[0];
-    const prefix = parseInt(parts[1], 10);
-    if (!/^\d+\.\d+\.\d+\.\d+$/.test(ip) || isNaN(prefix) || prefix < 0 || prefix > 32) return null;
-    const ipInt = ipToInt(ip);
-    const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
-    const network = ipInt & mask;
-    return { network, mask, prefix };
-  };
-  const ipInCIDR = (ip, cidr) => {
-    const parsed = parseCIDR(cidr);
-    if (!parsed) return false;
-    const ipInt = ipToInt(ip);
-    return (ipInt & parsed.mask) === parsed.network;
-  };
-  const isRFC1918CIDR = (cidr) => {
-    const parsed = parseCIDR(cidr);
-    if (!parsed) return false;
-    const { network } = parsed;
-    const tenNet = ipToInt('10.0.0.0');
-    const tenMask = (~0 << (32 - 8)) >>> 0;
-    if ((network & tenMask) === (tenNet & tenMask)) return true;
-    const a172 = ipToInt('172.16.0.0');
-    const a172Mask = (~0 << (32 - 12)) >>> 0;
-    if ((network & a172Mask) === (a172 & a172Mask)) return true;
-    const n192 = ipToInt('192.168.0.0');
-    const n192Mask = (~0 << (32 - 16)) >>> 0;
-    if ((network & n192Mask) === (n192 & n192Mask)) return true;
-    return false;
-  };
-
-  const isValidIPv4 = (ip) => {
-    if (!ip || typeof ip !== 'string') return false;
-    const parts = ip.split('.');
-    if (parts.length !== 4) return false;
-    for (const p of parts) {
-      if (!/^[0-9]+$/.test(p)) return false;
-      const n = Number(p);
-      if (n < 0 || n > 255) return false;
-    }
-    return true;
-  };
-
   // On IP input blur: if IP is valid, find a collection whose CIDR contains it
   // and select that collection in the dropdown. If multiple collections match,
   // pick the most specific (largest prefix).
   const handleIPBlur = () => {
-    const ip = formData.ip_address && formData.ip_address.trim();
-    if (!isValidIPv4(ip)) return;
-    let best = null;
-    for (const c of collections) {
-      if (!c || !c.cidr) continue;
-      if (ipInCIDR(ip, c.cidr)) {
-        const parsed = parseCIDR(c.cidr);
-        if (!parsed) continue;
-        if (!best || parsed.prefix > best.prefix) {
-          best = { id: c.id, prefix: parsed.prefix };
-        }
-      }
-    }
+    const best = findBestCollectionForIP(formData.ip_address, collections);
     if (best) {
-      setFormData((prev) => ({ ...prev, collection_id: String(best.id) }));
+      setFormData((prev) => ({ ...prev, collection_id: String(best) }));
     }
   };
 

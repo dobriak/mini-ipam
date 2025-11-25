@@ -1,5 +1,9 @@
 # Mini IPAM
 
+[![E2E Tests (Playwright)](https://github.com/dobriak/mini-ipam/actions/workflows/e2e.yml/badge.svg)](https://github.com/dobriak/mini-ipam/actions/workflows/e2e.yml)
+
+# Mini IPAM
+
 ## Mini IP address management application
 
 Extremely simplistic IPAM app to help keep track of multiple ip/port combinations, especially if you are running docker/podman and exposing applications on various ports.
