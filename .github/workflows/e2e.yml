@@ -1,0 +1,50 @@
+name: E2E Tests (Playwright)
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  playwright-e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Cache client node_modules
+        uses: actions/cache@v4
+        with:
+          path: client/node_modules
+          key: client-node-modules-${{ runner.os }}-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: |
+            client-node-modules-${{ runner.os }}-
+
+      - name: Install dependencies (client)
+        working-directory: client
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        working-directory: client
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright E2E tests
+        working-directory: client
+        env:
+          CI: true
+        run: npm run e2e
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: client/playwright-report || client/test-results || ''
