@@ -105,7 +105,6 @@ If you'd prefer a named Docker volume instead of the host `./data` folder, updat
 
 **Advanced / CI notes**
 - A GitHub Actions workflow runs Playwright E2E on pushes / PRs; the status badge at the top links to the workflow page.
-- To add CI that also builds and pushes Docker images, I can scaffold a `deploy` workflow.
 
 **Tips**
 - The server `package.json` uses `nodemon` for `npm start` which is convenient for development. The server Dockerfile uses `node index.js` for production; change the `CMD` in `server/Dockerfile` to `npm start` if you want `nodemon` behavior in container (not recommended for production).
