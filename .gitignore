@@ -19,4 +19,5 @@ dist-ssr
 *.sw?
 
 # sqlite
+data/*
 *.db
